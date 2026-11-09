@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A clean, fully responsive CV builder with live preview and PDF export." />
+  <title>FORME — CV Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { 
+      theme: { 
+        extend: { 
+          fontFamily: { 
+            sans: ['Inter', 'Arial', 'sans-serif'] 
+          } 
+        } 
+      } 
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; }
+    
+    .template-card.active { border-color: #111; box-shadow: 0 0 0 1px #111; }
+    .template-card.active .check { opacity: 1; }
+    
+    .cv-page { 
+      width: 794px; 
+      background: #fff; 
+      color: #171717; 
+      padding: 48px 52px; 
+      margin: 0 auto; 
+      box-shadow: 0 10px 35px rgba(0,0,0,0.08); 
+      overflow-wrap: anywhere; 
+      text-align: left; 
+    }
+    .cv-page h1 { letter-spacing: -.04em; }
+    .cv-page .section-title { font-size: 11px; letter-spacing: .16em; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #d4d4d4; padding-bottom: 6px; margin: 20px 0 10px; }
+    .cv-page .entry-title { font-weight: 700; font-size: 13px; }
+    .cv-page .muted { color: #666; }
+    .cv-page p, .cv-page li { font-size: 1em; line-height: 1.5; }
+    .cv-page .small { font-size: 0.9em; }
+    .cv-page ul { padding-left: 16px; list-style: disc; }
+    .cv-page .cv-header { margin-bottom: 18px; }
+    .cv-page .cv-photo { width: 84px; height: 84px; object-fit: cover; }
+    .cv-page section { page-break-inside: avoid; }
+    .cv-page h3 { color: #000;}
+    
+    /* Templates */
+    .cv-page.modern .cv-header { border-bottom: 3px solid #171717; padding-bottom: 16px; }
+    .cv-page.classic .cv-header { text-align: center; border-bottom: 1px solid #999; padding-bottom: 16px; }
+    .cv-page.classic .section-title { text-align: center; }
+    .cv-page.minimal { padding: 56px 60px; }
+    .cv-page.minimal .section-title { border: 0; padding: 0; margin-top: 22px; }
+    .cv-page.executive .cv-header { background: #171717; color: #fff; margin: -48px -52px 20px; padding: 36px 52px; }
+    .cv-page.executive .cv-header .muted { color: #d4d4d4; }
+    .cv-page.executive .section-title { border-color: #222; }
+    
+    /* Inputs */
+    .field { width: 100%; border: 1px solid #dedede; border-radius: 8px; padding: 9px 12px; font-size: 13px; outline: none; background: #fff; transition: all 0.15s ease; }
+    .field:focus { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.05); }
+    .field-label { display: block; font-size: 11px; font-weight: 700; color: #525252; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .btn { border-radius: 8px; padding: 9px 14px; font-size: 12px; font-weight: 700; transition: .2s; cursor: pointer; }
+    .btn-dark { background: #111; color: #fff; } .btn-dark:hover { background: #333; }
+    .btn-light { border: 1px solid #ddd; background: #fff; color: #111; } .btn-light:hover { background: #f5f5f5; }
+    
+    .section-panel { border: 1px solid #e5e5e5; border-radius: 12px; padding: 18px; background: #fff; width: 100%; }
+    .entry-card { border: 1px solid #eee; border-radius: 10px; padding: 14px; margin-top: 10px; background: #fafafa; }
+    
+    /* Responsive Scaler Outer Wrapper */
+    .preview-container { width: 100%; display: flex; justify-content: center; align-items: flex-start; overflow-x: hidden; }
+    .preview-scaler { transform-origin: top center; transition: transform 0.1s ease, height 0.1s ease; }
+    
+    {
+
+    }
+  
+    @media print { 
+      body { background: #fff !important; } 
+      .no-print { display: none !important; } 
+      #cvPreview { box-shadow: none !important; margin: 0 !important; width: 100% !important; transform: none !important; } 
+    }
+  </style>
+</head>
+<body class="bg-[#f5f5f4] text-neutral-900 min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="no-print sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <a href="#" class="flex items-center gap-2">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-black text-white"><i data-lucide="file-user" class="h-4 w-4"></i></span>
+        <span class="text-lg font-bold tracking-[.18em]">FORME<span class="text-neutral-400">.</span></span>
+      </a>
+      <div class="flex items-center gap-2">
+        <button id="resetBtn" class="btn btn-light">Reset</button>
+        <button id="downloadTop" class="btn btn-dark flex items-center gap-2"><i data-lucide="download" class="h-4 w-4"></i> <span class="hidden sm:inline">Download</span> PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main class="no-print mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6">
+    <div class="mb-6">
+      <p class="text-[10px] font-bold uppercase tracking-[.25em] text-neutral-500">CV studio / 01</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Build a CV that gets noticed.</h1>
+      <p class="mt-1 max-w-2xl text-xs sm:text-sm text-neutral-500">Add your details, choose a layout and preview every change instantly. Your information stays in your browser.</p>
+    </div>
+
+    <!-- MAIN GRID: Form (Left) & Preview (Right) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- LEFT COLUMN: FORM CONTROLS (7 Cols on desktop) -->
+      <section class="lg:col-span-7 space-y-5 min-w-0">
+        
+        <!-- 01 Layout -->
+        <div class="section-panel">
+          <div class="mb-3 flex items-center justify-between">
+            <div><p class="text-[10px] font-bold uppercase tracking-widest text-neutral-400">01 / Layout</p><h2 class="text-sm font-bold">Choose your template</h2></div>
+            <span class="text-xs text-neutral-400">4 styles</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <button class="template-card active relative rounded-xl border-2 border-neutral-900 p-2 text-left" data-template="modern">
+              <span class="check absolute right-2 top-2 opacity-100"><i data-lucide="check-circle-2" class="h-4 w-4"></i></span>
+              <div class="h-16 rounded border border-neutral-200 bg-neutral-50 p-1.5"><div class="h-1.5 w-2/3 bg-neutral-900"></div><div class="mt-1.5 h-1 w-full bg-neutral-300"></div><div class="mt-1 h-1 w-4/5 bg-neutral-200"></div><div class="mt-2 h-1 w-1/3 bg-neutral-900"></div></div><span class="mt-2 block text-xs font-bold text-center">Modern</span>
+            </button>
+            <button class="template-card relative rounded-xl border-2 border-neutral-200 p-2 text-left" data-template="classic">
+              <span class="check absolute right-2 top-2 opacity-0"><i data-lucide="check-circle-2" class="h-4 w-4"></i></span>
+              <div class="h-16 rounded border border-neutral-200 bg-neutral-50 p-1.5"><div class="mx-auto h-1.5 w-1/2 bg-neutral-900"></div><div class="mx-auto mt-1.5 h-1 w-2/3 bg-neutral-300"></div><div class="mt-2 h-1 w-1/3 bg-neutral-900"></div></div><span class="mt-2 block text-xs font-bold text-center">Classic</span>
+            </button>
+            <button class="template-card relative rounded-xl border-2 border-neutral-200 p-2 text-left" data-template="minimal">
+              <span class="check absolute right-2 top-2 opacity-0"><i data-lucide="check-circle-2" class="h-4 w-4"></i></span>
+              <div class="h-16 rounded border border-neutral-200 bg-white p-1.5"><div class="h-1.5 w-1/2 bg-neutral-900"></div><div class="mt-2 h-1 w-1/4 bg-neutral-900"></div><div class="mt-1 h-1 w-full bg-neutral-200"></div></div><span class="mt-2 block text-xs font-bold text-center">Minimal</span>
+            </button>
+            <button class="template-card relative rounded-xl border-2 border-neutral-200 p-2 text-left" data-template="executive">
+              <span class="check absolute right-2 top-2 opacity-0"><i data-lucide="check-circle-2" class="h-4 w-4"></i></span>
+              <div class="h-16 rounded border border-neutral-200 bg-white p-1.5"><div class="-mx-1.5 -mt-1.5 h-6 bg-neutral-900 p-1"><div class="h-1.5 w-1/2 bg-white"></div></div><div class="mt-2 h-1 w-full bg-neutral-200"></div></div><span class="mt-2 block text-xs font-bold text-center">Executive</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 02 Personal Details -->
+        <div class="section-panel">
+          <div class="mb-3"><p class="text-[10px] font-bold uppercase tracking-widest text-neutral-400">02 / Personal details</p><h2 class="text-sm font-bold">Your information</h2></div>
+          <div class="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <label class="block"><span class="field-label">Full name *</span><input id="fullName" class="field" placeholder="e.g. Abdul Wahab Rehan"></label>
+            <label class="block"><span class="field-label">Professional title</span><input id="jobTitle" class="field" placeholder="e.g. IT Support Specialist"></label>
+            <label class="block"><span class="field-label">Email</span><input id="email" type="email" class="field" placeholder="name@email.com"></label>
+            <label class="block"><span class="field-label">Phone</span><input id="phone" class="field" placeholder="+971 50 000 0000"></label>
+            <label class="block"><span class="field-label">Location</span><input id="location" class="field" placeholder="Dubai, UAE"></label>
+            <label class="block"><span class="field-label">LinkedIn / Portfolio</span><input id="website" class="field" placeholder="linkedin.com/in/yourname"></label>
+          </div>
+          <div class="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-[1fr_auto] sm:items-end">
+            <label class="block"><span class="field-label">Profile photo (optional)</span><input id="photo" type="file" accept="image/*" class="field text-xs"></label>
+            <button id="removePhoto" class="btn btn-light h-[38px] w-full sm:w-auto">Remove photo</button>
+          </div>
+          <label class="mt-3 block"><span class="field-label">Professional summary</span><textarea id="summary" rows="3" class="field" placeholder="Write 2–4 concise lines about your experience, strengths and career focus."></textarea></label>
+        </div>
+
+        <!-- 03 Work History -->
+        <div class="section-panel">
+          <div class="mb-2"><p class="text-[10px] font-bold uppercase tracking-widest text-neutral-400">03 / Work history</p><h2 class="text-sm font-bold">Experience</h2></div>
+          <div id="experienceList"></div>
+          <button id="addExperience" class="btn btn-light mt-3 flex items-center gap-2"><i data-lucide="plus" class="h-4 w-4"></i> Add experience</button>
+        </div>
+
+        <!-- 04 Education -->
+        <div class="section-panel">
+          <div class="mb-2"><p class="text-[10px] font-bold uppercase tracking-widest text-neutral-400">04 / Education</p><h2 class="text-sm font-bold">Education</h2></div>
+          <div id="educationList"></div>
+          <button id="addEducation" class="btn btn-light mt-3 flex items-center gap-2"><i data-lucide="plus" class="h-4 w-4"></i> Add education</button>
+        </div>
+
+        <!-- 05 Skills & Extras -->
+        <div class="section-panel">
+          <div class="mb-3"><p class="text-[10px] font-bold uppercase tracking-widest text-neutral-400">05 / Skills & extras</p><h2 class="text-sm font-bold">Complete your profile</h2></div>
+          <label class="block"><span class="field-label">Skills (comma separated)</span><textarea id="skills" rows="2" class="field" placeholder="Technical support, Troubleshooting, Windows, Networking..."></textarea></label>
+          <div class="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <label class="block"><span class="field-label">Languages (comma separated)</span><input id="languages" class="field" placeholder="English, Hindi, Arabic"></label>
+            <label class="block"><span class="field-label">Certifications (comma separated)</span><input id="certifications" class="field" placeholder="CompTIA A+, ITIL Foundation"></label>
+          </div>
+          <div class="mt-3">
+            <div class="flex items-center justify-between mb-1"><span class="field-label !mb-0">Projects (optional)</span><button id="addProject" class="text-xs font-bold text-neutral-600 hover:text-black underline">+ Add project</button></div>
+            <div id="projectList"></div>
+          </div>
+          <label class="mt-3 block"><span class="field-label">Additional information (optional)</span><textarea id="additional" rows="2" class="field" placeholder="Awards, volunteering, work authorization, etc."></textarea></label>
+        </div>
+
+        <!-- 06 Export Settings -->
+        <div class="section-panel">
+          <div class="mb-3"><p class="text-[10px] font-bold uppercase tracking-widest text-neutral-400">06 / Export settings</p><h2 class="text-sm font-bold">PDF options</h2></div>
+          <div class="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <label class="block"><span class="field-label">Paper size</span><select id="paperSize" class="field"><option value="a4">A4</option><option value="letter">US Letter</option></select></label>
+            <label class="block"><span class="field-label">Font size</span><select id="fontSize" class="field"><option value="compact">Compact</option><option value="normal" selected>Standard</option><option value="large">Large</option></select></label>
+          </div>
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-medium text-neutral-700">
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="showPhoto" checked class="accent-black h-4 w-4 rounded"> Show photo</label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="showProjects" checked class="accent-black h-4 w-4 rounded"> Show projects</label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="showCerts" checked class="accent-black h-4 w-4 rounded"> Show certifications</label>
+          </div>
+          <button id="downloadBtn" class="btn btn-dark mt-5 flex w-full items-center justify-center gap-2 py-3 text-sm"><i data-lucide="file-down" class="h-4 w-4"></i> Generate & Download PDF</button>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: LIVE PREVIEW STICKY (5 Cols on desktop) -->
+      <aside class="fixed bottom-0 left-0 right-0 z-40 flex flex-col bg-white border-t border-neutral-200 p-4 shadow-2xl h-[55vh] overflow-y-auto lg:top-0 lg:bottom-0 lg:left-auto lg:right-0 lg:h-screen lg:w-[450px] lg:border-l lg:border-t-0 lg:p-6">
+  
+  <!-- Title Header Block -->
+  <div class="mb-4 flex items-center justify-between shrink-0">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest text-neutral-400">Live preview</p>
+      <h2 class="mt-1 font-bold text-neutral-800">Your Document</h2>
+    </div>
+    <span class="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[10px] font-semibold text-neutral-500">Live Sync</span>
+  </div>
+  
+  <!-- Scrollable Canvas Container -->
+  <div class="preview-container rounded-2xl border border-neutral-200 bg-[#e9e9e7] p-2 sm:p-4 overflow-y-auto flex-1" id="previewContainer">
+    <div class="preview-scaler" id="previewScaler">
+      <article id="cvPreview" class="cv-page modern bg-white p-6 shadow-sm min-h-[580px]" aria-label="CV preview">
+        
+        <!-- Header -->
+        <div class="cv-header flex items-start justify-between gap-5">
+          <div class="min-w-0 flex-1">
+            <h1 id="pName" class="text-3xl font-bold text-neutral-900">Your Name</h1>
+            <p id="pTitle" class="mt-1 text-sm font-semibold tracking-wide text-neutral-700">Professional Title</p>
+            <div id="pContact" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-neutral-500">
+              <span>Email address</span>
+            </div>
+          </div>
+<div class="cv-photo-wrapper shrink-0">
+  <!-- Square Placeholder -->
+  <div id="pPhotoPlaceholder" class="h-16 w-16 bg-neutral-100 border border-neutral-200 flex items-center justify-center text-[10px] text-neutral-400">
+    Photo
+  </div>
+  <!-- Square Image Box (Displays image exactly as it is without clipping into a circle) -->
+  <img id="pPhoto" class="max-h-24 max-w-[96px] w-auto h-auto border border-neutral-200 hidden object-contain" alt="Profile photo">
+</div>
+        </div>
+        
+        <!-- Summary -->
+        <section id="pSummarySection" class="mt-4">
+          <h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Profile</h3>
+          <p id="pSummary" class="text-xs mt-1 text-neutral-600">Your summary will appear here.</p>
+        </section>
+        
+        <!-- Experience -->
+        <section id="pExperienceSection" class="mt-4">
+          <h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Experience</h3>
+          <div id="pExperience" class="text-xs mt-1 text-neutral-500">
+            <p>Your work experience will appear here.</p>
+          </div>
+        </section>
+        
+        <!-- Education -->
+        <section id="pEducationSection" class="mt-4">
+          <h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Education</h3>
+          <div id="pEducation" class="text-xs mt-1 text-neutral-500">
+            <p>Your education will appear here.</p>
+          </div>
+        </section>
+        
+        <!-- Skills -->
+        <section id="pSkillsSection" class="mt-4">
+          <h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Core skills</h3>
+          <p id="pSkills" class="text-xs mt-1 text-neutral-600 leading-relaxed">Your skills will appear here.</p>
+        </section>
+        
+        <!-- Extra Sections -->
+        <section id="pProjectsSection" class="mt-4"><h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Projects</h3><div id="pProjects"></div></section>
+        <section id="pCertsSection" class="mt-4"><h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Certifications</h3><p id="pCerts"></p></section>
+        <section id="pLanguagesSection" class="mt-4"><h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Languages</h3><p id="pLanguages"></p></section>
+        <section id="pAdditionalSection" class="mt-4"><h3 class="text-xs font-bold uppercase border-b pb-1 text-neutral-400 tracking-wider">Additional information</h3><p id="pAdditional"></p></section>
+      
+      </article>
+    </div>
+  </div>
+  
+  <!-- Footer Status -->
+  <p class="mt-3 text-center text-xs text-neutral-400 shrink-0">Updates dynamically as you edit</p>
+</aside>
+
+
+    </div>
+  </main>
+
+  <footer class="no-print mt-12 border-t border-neutral-200 bg-white py-4 text-center text-xs text-neutral-400">FORME CV Studio · All details remain local to your browser</footer>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let currentTemplate = 'modern';
+  let photoData = '';
+  let expCount = 0, eduCount = 0, projectCount = 0;
+  const fieldIds = ['fullName','jobTitle','email','phone','location','website','summary','skills','languages','certifications','additional','paperSize','fontSize','showPhoto','showProjects','showCerts'];
+
+  // Precise scale handling to keep standard document layout aligned on all mobile screens
+  function scalePreview() {
+    const container = $('previewContainer');
+    const scaler = $('previewScaler');
+    const cvPage = $('cvPreview');
+    if (!container || !scaler || !cvPage) return;
+    
+    const containerWidth = container.clientWidth - (window.innerWidth < 640 ? 16 : 32);
+    const targetWidth = cvPage.offsetWidth || ($('paperSize').value === 'letter' ? 816 : 794);
+    
+    if (containerWidth > 0 && containerWidth < targetWidth) {
+      const scale = containerWidth / targetWidth;
+      scaler.style.transform = `scale(${scale})`;
+      scaler.style.width = `${targetWidth}px`;
+      scaler.style.height = `${cvPage.offsetHeight * scale}px`;
+    } else {
+      scaler.style.transform = 'none';
+      scaler.style.width = 'auto';
+      scaler.style.height = 'auto';
+    }
+  }
+
+  window.addEventListener('resize', scalePreview);
+
+  function makeEntry(type, data = {}) {
+    const id = ++({ experience: expCount, education: eduCount, project: projectCount }[type]);
+    if (type === 'experience') expCount = id;
+    if (type === 'education') eduCount = id;
+    if (type === 'project') projectCount = id;
+    
+    const wrap = document.createElement('div'); 
+    wrap.className = 'entry-card'; 
+    wrap.dataset.type = type;
+    
+    const common = (key, label, placeholder, value = '') => 
+      `<label class="block"><span class="field-label">${label}</span><input class="field entry-${key}" placeholder="${placeholder}" value="${escapeAttr(value)}"></label>`;
+    
+    const date = common('date', 'Dates', 'e.g. Jan 2024 – Present', data.date || '');
+    
+    if (type === 'experience') {
+      wrap.innerHTML = `
+        <div class="mb-2 flex items-center justify-between"><span class="text-xs font-bold text-neutral-500">Experience ${id}</span><button type="button" class="remove-entry text-xs font-semibold text-red-500 hover:underline">Remove</button></div>
+        <div class="grid gap-3 grid-cols-1 sm:grid-cols-2">
+          ${common('role', 'Job title', 'IT Support Associate', data.role || '')}
+          ${common('company', 'Company', 'Company name', data.company || '')}
+          ${common('place', 'Location', 'Dubai, UAE', data.place || '')}
+          ${date}
+        </div>
+        <label class="mt-3 block"><span class="field-label">Responsibilities / achievements (one per line)</span><textarea class="field entry-desc" rows="3" placeholder="Resolved user issues...">${escapeHTML(data.desc || '')}</textarea></label>`;
+    }
+    
+    if (type === 'education') {
+      wrap.innerHTML = `
+        <div class="mb-2 flex items-center justify-between"><span class="text-xs font-bold text-neutral-500">Education ${id}</span><button type="button" class="remove-entry text-xs font-semibold text-red-500 hover:underline">Remove</button></div>
+        <div class="grid gap-3 grid-cols-1 sm:grid-cols-2">
+          ${common('degree', 'Qualification', 'BSc Computer Science', data.degree || '')}
+          ${common('school', 'Institution', 'University / College', data.school || '')}
+          ${common('place', 'Location', 'City, Country', data.place || '')}
+          ${date}
+        </div>
+        <label class="mt-3 block"><span class="field-label">Details (optional)</span><input class="field entry-desc" placeholder="Grade, specialization..." value="${escapeAttr(data.desc || '')}"></label>`;
+    }
+    
+    if (type === 'project') {
+      wrap.innerHTML = `
+        <div class="mb-2 flex items-center justify-between"><span class="text-xs font-bold text-neutral-500">Project ${id}</span><button type="button" class="remove-entry text-xs font-semibold text-red-500 hover:underline">Remove</button></div>
+        <label class="block"><span class="field-label">Project name</span><input class="field entry-name" placeholder="Project title" value="${escapeAttr(data.name || '')}"></label>
+        <label class="mt-2 block"><span class="field-label">Description</span><textarea class="field entry-desc" rows="2" placeholder="What you built and tools used">${escapeHTML(data.desc || '')}</textarea></label>`;
+    }
+    
+    wrap.querySelector('.remove-entry').addEventListener('click', () => { wrap.remove(); render(); });
+    wrap.querySelectorAll('input,textarea').forEach(el => el.addEventListener('input', render));
+    return wrap;
+  }
+
+  function escapeHTML(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  function escapeAttr(s) { return escapeHTML(s); }
+  function entries(id) {
+    return [...$(id).children].map(card => {
+      const o = {};
+      card.querySelectorAll('[class*="entry-"]').forEach(el => {
+        const key = [...el.classList].find(c => c.startsWith('entry-')).slice(6);
+        o[key] = el.value;
+      });
+      return o;
+    });
+  }
+  
+  function add(type) {
+    const target = { experience: 'experienceList', education: 'educationList', project: 'projectList' }[type];
+    $(target).appendChild(makeEntry(type));
+    render();
+  }
+
+  function setText(id, value, fallback = '') { $(id).textContent = value || fallback; }
+  function listHTML(text) { return String(text || '').split('\n').map(x => x.trim()).filter(Boolean).map(x => `<li>${escapeHTML(x)}</li>`).join(''); }
+  
+  function render() {
+    const name = $('fullName').value.trim(), title = $('jobTitle').value.trim();
+    setText('pName', name, 'Your Name');
+    setText('pTitle', title, 'Professional Title');
+    
+    const contact = [$('email').value, $('phone').value, $('location').value, $('website').value].filter(Boolean);
+    $('pContact').innerHTML = contact.length 
+      ? contact.map(escapeHTML).map(x => `<span>${x}</span>`).join('<span class="text-neutral-300">·</span>') 
+      : '<span>Email · Phone · Location · LinkedIn</span>';
+      
+    setText('pSummary', $('summary').value, 'Your professional summary will appear here. Add a concise overview of your experience and strengths.');
+    
+    const ex = entries('experienceList');
+    $('pExperience').innerHTML = ex.filter(x => x.role || x.company).map(x => `
+      <div class="mb-3" style="page-break-inside:avoid;">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span class="entry-title">${escapeHTML(x.role)}</span>
+          <span class="small muted">${escapeHTML(x.date)}</span>
+        </div>
+        <p class="mt-0.5 font-semibold text-neutral-800">${escapeHTML(x.company)}${x.place ? ' · ' + escapeHTML(x.place) : ''}</p>
+        ${x.desc ? `<ul class="mt-1">${listHTML(x.desc)}</ul>` : ''}
+      </div>`).join('') || '<p class="muted">Your work experience will appear here.</p>';
+    
+    const ed = entries('educationList');
+    $('pEducation').innerHTML = ed.filter(x => x.degree || x.school).map(x => `
+      <div class="mb-3" style="page-break-inside:avoid;">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span class="entry-title">${escapeHTML(x.degree)}</span>
+          <span class="small muted">${escapeHTML(x.date)}</span>
+        </div>
+        <p class="mt-0.5">${escapeHTML(x.school)}${x.place ? ' · ' + escapeHTML(x.place) : ''}</p>
+        ${x.desc ? `<p class="muted">${escapeHTML(x.desc)}</p>` : ''}
+      </div>`).join('') || '<p class="muted">Your education will appear here.</p>';
+    
+    setText('pSkills', $('skills').value.split(',').map(x => x.trim()).filter(Boolean).join('  ·  '), 'Your skills will appear here.');
+    
+    const projects = entries('projectList');
+    $('pProjects').innerHTML = projects.filter(x => x.name || x.desc).map(x => `
+      <div class="mb-2" style="page-break-inside:avoid;">
+        <p class="entry-title">${escapeHTML(x.name)}</p>
+        <p class="text-neutral-600">${escapeHTML(x.desc)}</p>
+      </div>`).join('');
+    
+    setText('pCerts', $('certifications').value.split(',').map(x => x.trim()).filter(Boolean).join('  ·  '));
+    setText('pLanguages', $('languages').value.split(',').map(x => x.trim()).filter(Boolean).join('  ·  '));
+    setText('pAdditional', $('additional').value);
+    
+    $('pProjectsSection').classList.toggle('hidden', !$('showProjects').checked || !projects.some(x => x.name || x.desc));
+    $('pCertsSection').classList.toggle('hidden', !$('showCerts').checked || !$('certifications').value.trim());
+    $('pLanguagesSection').classList.toggle('hidden', !$('languages').value.trim());
+    $('pAdditionalSection').classList.toggle('hidden', !$('additional').value.trim());
+    
+    $('pPhoto').src = photoData;
+    $('pPhoto').classList.toggle('hidden', !photoData || !$('showPhoto').checked);
+    
+    $('cvPreview').className = 'cv-page ' + currentTemplate;
+    
+    const fs = $('fontSize').value;
+    const previewEl = $('cvPreview');
+    if (fs === 'compact') {
+      previewEl.style.fontSize = '9px';
+    } else if (fs === 'large') {
+      previewEl.style.fontSize = '12px';
+    } else {
+      previewEl.style.fontSize = '10.5px';
+    }
+    
+    previewEl.style.width = $('paperSize').value === 'letter' ? '816px' : '794px';
+    
+    setTimeout(scalePreview, 20);
+  }
+
+  document.querySelectorAll('.template-card').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.template-card').forEach(b => {
+      b.classList.remove('active');
+      b.classList.add('border-neutral-200');
+      b.querySelector('.check').classList.add('opacity-0');
+    });
+    btn.classList.add('active');
+    btn.classList.remove('border-neutral-200');
+    btn.querySelector('.check').classList.remove('opacity-0');
+    currentTemplate = btn.dataset.template;
+    render();
+  }));
+
+  $('addExperience').onclick = () => add('experience');
+  $('addEducation').onclick = () => add('education');
+  $('addProject').onclick = () => add('project');
+  
+  ['input', 'change'].forEach(evt => {
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+      el.addEventListener(evt, render);
+    });
+  });
+
+  $('photo').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return alert('Please choose a valid image file.');
+    const reader = new FileReader();
+    reader.onload = () => { photoData = reader.result; render(); };
+    reader.readAsDataURL(file);
+  });
+  
+  $('removePhoto').onclick = () => { photoData = ''; $('photo').value = ''; render(); };
+
+  function downloadPDF() {
+    if (!$('fullName').value.trim()) {
+      alert('Please enter your full name before downloading.');
+      $('fullName').focus();
+      return;
+    }
+    if (typeof html2pdf === 'undefined') {
+      alert('PDF library did not load. Check your internet connection and try again.');
+      return;
+    }
+    const element = $('cvPreview');
+    const name = ($('fullName').value.trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '')) || 'My_CV';
+    const paper = $('paperSize').value === 'letter' ? 'letter' : 'a4';
+    const opt = {
+      margin: 0,
+      filename: name + '_CV.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 },
+      jsPDF: { unit: 'mm', format: paper, orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+    
+    const btn = $('downloadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Preparing PDF…';
+    
+    html2pdf().set(opt).from(element).save().then(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="file-down" class="h-4 w-4"></i> Generate & Download PDF';
+      if (window.lucide) lucide.createIcons();
+    }).catch(err => {
+      console.error(err);
+      alert('Could not create the PDF. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Generate & Download PDF';
+    });
+  }
+
+  $('downloadBtn').onclick = downloadPDF;
+  $('downloadTop').onclick = downloadPDF;
+
+  $('resetBtn').onclick = () => {
+    if (!confirm('Clear all CV details and start again?')) return;
+    fieldIds.forEach(id => {
+      const el = $(id);
+      if (el.type === 'checkbox') el.checked = ['showPhoto', 'showProjects', 'showCerts'].includes(id);
+      else el.value = el.tagName === 'SELECT' ? (id === 'paperSize' ? 'a4' : 'normal') : '';
+    });
+    $('experienceList').innerHTML = '';
+    $('educationList').innerHTML = '';
+    $('projectList').innerHTML = '';
+    photoData = '';
+    $('photo').value = '';
+    currentTemplate = 'modern';
+    document.querySelector('[data-template="modern"]').click();
+    render();
+  };
+
+  // Initial Load
+  add('experience');
+  add('education');
+  render();
+  if (window.lucide) lucide.createIcons();
+
+  // Target your file input element and the preview image tags
+const photoInput = document.querySelector('input[type="file"]');
+const pPhoto = document.getElementById('pPhoto');
+const pPhotoPlaceholder = document.getElementById('pPhotoPlaceholder');
+
+if (photoInput) {
+  photoInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    
+    if (file) {
+      const reader = new FileReader();
+      
+      // Convert the image file to a base64 string
+      reader.onload = function(event) {
+        const base64String = event.target.result;
+        
+        // 1. Inject image data directly into the preview image src attribute
+        pPhoto.src = base64String;
+        
+        // 2. Toggle UI visibilities so the image displays instead of the placeholder text
+        pPhoto.classList.remove('hidden');
+        pPhotoPlaceholder.classList.add('hidden');
+      };
+      
+      reader.readAsDataURL(file);
+    }
+  });
+}
+const removePhotoButton = document.querySelector('button.text-red-500, a.text-red-500');
+
+if (removePhotoButton) {
+  removePhotoButton.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    // Clear input and src states
+    if (photoInput) photoInput.value = '';
+    pPhoto.src = '';
+    
+    // Reset layout configurations back to raw placeholder text layout status
+    pPhoto.classList.add('hidden');
+    pPhotoPlaceholder.classList.remove('hidden');
+  });
+}
+
+</script>
+</body>
+</html>
